@@ -5,9 +5,11 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text; // Thêm để dùng StringBuilder
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using FileViews.Models;
+using Renci.SshNet.Sftp;
 using System.Windows.Media;
 
 namespace FileViews.Services
@@ -22,7 +24,7 @@ namespace FileViews.Services
         private bool _isConnected;
         private readonly ImageSource _folderIcon;
         private readonly Dictionary<string, ImageSource> _fileIconCache;
-        public string DefaultPath { get; private set; } // Thêm để lưu thư mục mặc định
+        public string DefaultPath { get; private set; }
 
         public SftpFileService(string host, int port, string username, string password)
         {
@@ -45,7 +47,7 @@ namespace FileViews.Services
                 _sftpClient = new SftpClient(_host, _port, _username, _password);
                 _sftpClient.Connect();
                 _isConnected = true;
-                DefaultPath = _sftpClient.WorkingDirectory; // Lấy thư mục nhà sau khi kết nối
+                DefaultPath = _sftpClient.WorkingDirectory;
             }
         }
 
@@ -71,7 +73,7 @@ namespace FileViews.Services
                     Size = f.Length,
                     LastModified = f.LastWriteTime,
                     Icon = f.IsDirectory ? _folderIcon : GetFileIconByExtension(Path.GetExtension(f.Name)),
-                    Permissions = f.Attributes.ToString() // Lấy quyền dưới dạng chuỗi (ví dụ: rwxr-xr-x)
+                    Permissions = GetPosixPermissions(f.Attributes) // Sửa để trả về rwxr-xr-x
                 });
         }
 
@@ -186,6 +188,25 @@ namespace FileViews.Services
                 DeleteObject(hBitmap);
                 return bitmapSource;
             }
+        }
+
+        private string GetPosixPermissions(SftpFileAttributes attributes) // Thêm để chuyển thành rwxr-xr-x
+        {
+            var sb = new StringBuilder(9);
+            // Owner permissions
+            sb.Append(attributes.OwnerCanRead ? "r" : "-");
+            sb.Append(attributes.OwnerCanWrite ? "w" : "-");
+            sb.Append(attributes.OwnerCanExecute ? "x" : "-");
+            // Group permissions
+            sb.Append(attributes.GroupCanRead ? "r" : "-");
+            sb.Append(attributes.GroupCanWrite ? "w" : "-");
+            sb.Append(attributes.GroupCanExecute ? "x" : "-");
+            // Others permissions
+            sb.Append(attributes.OthersCanRead ? "r" : "-");
+            sb.Append(attributes.OthersCanWrite ? "w" : "-");
+            sb.Append(attributes.OthersCanExecute ? "x" : "-");
+
+            return sb.ToString();
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]

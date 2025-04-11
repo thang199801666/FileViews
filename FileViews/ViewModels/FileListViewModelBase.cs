@@ -50,28 +50,28 @@ namespace FileViews.ViewModels
             OpenOrDownloadCommand = new RelayCommand(ExecuteOpenOrDownload, CanExecuteOpenOrDownload);
         }
 
-        protected virtual void ExecuteConnect(object parameter) // Định nghĩa phương thức ảo
+        protected virtual void ExecuteConnect(object parameter)
         {
             throw new NotImplementedException("ExecuteConnect must be implemented in derived class.");
         }
 
         protected virtual bool CanExecuteConnect(object parameter)
         {
-            return true; // Có thể được ghi đè trong lớp dẫn xuất
+            return true;
         }
 
         protected virtual void ExecuteRefresh(object parameter)
         {
             try
             {
-                StatusMessage = "Refreshing...";
+                //StatusMessage = "Refreshing...";
                 Files.Clear();
                 var files = FileService.ListFiles(CurrentPath);
                 foreach (var file in files)
                 {
                     Files.Add(file);
                 }
-                StatusMessage = "Refreshed successfully.";
+                StatusMessage = $"Current Folder: {CurrentPath}";
             }
             catch (Exception ex)
             {

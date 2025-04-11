@@ -25,19 +25,5 @@ namespace FileViews.Views
             passwordBox.PasswordChanged += (s, e) => _viewModel.Password = passwordBox.Password;
         }
 
-        private void ListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            if (sender is ListView listView && listView.SelectedItem != null)
-            {
-                var selectedFile = listView.SelectedItem as FileViews.Models.FileItem;
-                if (selectedFile != null && selectedFile.IsDirectory)
-                {
-                    if (_viewModel.OpenOrDownloadCommand.CanExecute(selectedFile))
-                    {
-                        _viewModel.OpenOrDownloadCommand.Execute(selectedFile);
-                    }
-                }
-            }
-        }
     }
 }
