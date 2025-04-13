@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+        xmlns:vm="clr-namespace:FileViews.ViewModels"
         Title="SFTP File Explorer" 
         Height="423" 
         Width="589"
@@ -29,7 +30,7 @@
         </StackPanel>
 
         <!-- File List -->
-        <ListView Grid.Row="1" ItemsSource="{Binding Files}" Margin="5">
+        <ListView Grid.Row="1" ItemsSource="{Binding Source={StaticResource FilesViewSource}}" Margin="5">
             <i:Interaction.Triggers>
                 <i:EventTrigger EventName="MouseDoubleClick">
                     <i:InvokeCommandAction Command="{Binding OpenOrDownloadCommand}" 
@@ -39,7 +40,8 @@
 
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Name" Width="200">
+                    <GridViewColumn Width="200">
+                        <GridViewColumnHeader Content="Name" Command="{Binding SortCommand}" CommandParameter="Name"/>
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
@@ -49,9 +51,24 @@
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn Header="Size" DisplayMemberBinding="{Binding Size}" Width="100"/>
-                    <GridViewColumn Header="Last Modified" DisplayMemberBinding="{Binding LastModified}" Width="150"/>
-                    <GridViewColumn Header="Permission" DisplayMemberBinding="{Binding Permissions}" Width="100"/>
+                    <GridViewColumn>
+                        <GridViewColumnHeader Content="Size" Command="{Binding SortCommand}" CommandParameter="Size"/>
+                        <GridViewColumn.DisplayMemberBinding>
+                            <Binding Path="Size"/>
+                        </GridViewColumn.DisplayMemberBinding>
+                    </GridViewColumn>
+                    <GridViewColumn>
+                        <GridViewColumnHeader Content="Last Modified" Command="{Binding SortCommand}" CommandParameter="LastModified"/>
+                        <GridViewColumn.DisplayMemberBinding>
+                            <Binding Path="LastModified"/>
+                        </GridViewColumn.DisplayMemberBinding>
+                    </GridViewColumn>
+                    <GridViewColumn>
+                        <GridViewColumnHeader Content="Permission" Command="{Binding SortCommand}" CommandParameter="Permissions"/>
+                        <GridViewColumn.DisplayMemberBinding>
+                            <Binding Path="Permissions"/>
+                        </GridViewColumn.DisplayMemberBinding>
+                    </GridViewColumn>
                 </GridView>
             </ListView.View>
             <ListView.ContextMenu>

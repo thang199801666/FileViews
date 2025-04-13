@@ -1,7 +1,6 @@
-﻿using System.Windows;
+﻿using FileViews.ViewModels;
+using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
-using FileViews.ViewModels;
 
 namespace FileViews.Views
 {
@@ -12,18 +11,20 @@ namespace FileViews.Views
         public MainWindow()
         {
             InitializeComponent();
-            _viewModel = new SftpFileListViewModel(
-                host: "localhost",
-                port: 2223,
-                username: "myuser",
-                password: "mypassword"
-            );
+            _viewModel = new SftpFileListViewModel("localhost", 22, "myuser", "mypassword");
             DataContext = _viewModel;
 
-            // Gán giá trị mặc định cho PasswordBox
-            passwordBox.Password = _viewModel.Password;
+            // Cập nhật Password từ PasswordBox khi người dùng nhập
             passwordBox.PasswordChanged += (s, e) => _viewModel.Password = passwordBox.Password;
         }
 
+        // Xử lý sự kiện MouseDoubleClick (nếu cần)
+        private void ListView_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (_viewModel.OpenOrDownloadCommand.CanExecute(null))
+            {
+                _viewModel.OpenOrDownloadCommand.Execute(((ListView)sender).SelectedItem);
+            }
+        }
     }
 }
