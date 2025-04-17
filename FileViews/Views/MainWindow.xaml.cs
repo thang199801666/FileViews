@@ -11,7 +11,7 @@ namespace FileViews.Views
         public MainWindow()
         {
             InitializeComponent();
-            _viewModel = new SftpFileListViewModel("localhost", 22, "myuser", "mypassword");
+            _viewModel = new SftpFileListViewModel("ohpcvn", 22, "thannguyen", "noequalvn");
             DataContext = _viewModel;
 
             // Cập nhật Password từ PasswordBox khi người dùng nhập

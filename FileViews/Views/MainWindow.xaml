@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:vm="clr-namespace:FileViews.ViewModels"
+        xmlns:local="clr-namespace:FileViews.Converters"
         Title="SFTP File Explorer" 
         Height="423" 
         Width="589"
@@ -11,10 +12,12 @@
 
     <Window.Resources>
         <CollectionViewSource x:Key="FilesViewSource" Source="{Binding Files}"/>
+        <local:DirectorySizeConverter x:Key="DirectorySizeConverter" />
     </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
@@ -22,18 +25,23 @@
 
         <!-- Connection Panel -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5">
-            <TextBox Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}" Width="150" Margin="5" ToolTip="SFTP Host (default: localhost)"/>
-            <TextBox Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Width="50" Margin="5" ToolTip="SFTP Port (default: 2223)"/>
-            <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Width="100" Margin="5" ToolTip="SFTP Username (default: myuser)"/>
-            <PasswordBox x:Name="passwordBox" Width="100" Margin="5" ToolTip="SFTP Password (default: mypassword)"/>
+            <TextBox Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}" Width="150" Margin="5" ToolTip="{Binding Host}"/>
+            <TextBox Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Width="50" Margin="5" ToolTip="{Binding Port}"/>
+            <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Width="100" Margin="5" ToolTip="{Binding Username}"/>
+            <PasswordBox x:Name="passwordBox" Width="100" Margin="5"/>
             <Button Content="Connect" Command="{Binding ConnectCommand}" Margin="5"/>
         </StackPanel>
 
+        <!-- File Controls Panel -->
+
         <!-- File List -->
-        <ListView Grid.Row="1" ItemsSource="{Binding Source={StaticResource FilesViewSource}}" Margin="5">
+        <ListView Grid.Row="2" 
+                  ItemsSource="{Binding Source={StaticResource FilesViewSource}}" 
+                  Margin="5"
+                  SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
             <i:Interaction.Triggers>
                 <i:EventTrigger EventName="MouseDoubleClick">
-                    <i:InvokeCommandAction Command="{Binding OpenOrDownloadCommand}" 
+                    <i:InvokeCommandAction Command="{Binding NavigateCommand}" 
                                   CommandParameter="{Binding SelectedItem, RelativeSource={RelativeSource AncestorType=ListView}}"/>
                 </i:EventTrigger>
             </i:Interaction.Triggers>
@@ -51,34 +59,45 @@
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn>
+
+                    <GridViewColumn Width="70">
                         <GridViewColumnHeader Content="Size" Command="{Binding SortCommand}" CommandParameter="Size"/>
-                        <GridViewColumn.DisplayMemberBinding>
-                            <Binding Path="Size"/>
-                        </GridViewColumn.DisplayMemberBinding>
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding ., Converter={StaticResource DirectorySizeConverter}}"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn>
+
+                    <GridViewColumn Width="150">
                         <GridViewColumnHeader Content="Last Modified" Command="{Binding SortCommand}" CommandParameter="LastModified"/>
                         <GridViewColumn.DisplayMemberBinding>
                             <Binding Path="LastModified"/>
                         </GridViewColumn.DisplayMemberBinding>
                     </GridViewColumn>
-                    <GridViewColumn>
+                    
+                    <GridViewColumn Width="120">
                         <GridViewColumnHeader Content="Permission" Command="{Binding SortCommand}" CommandParameter="Permissions"/>
                         <GridViewColumn.DisplayMemberBinding>
                             <Binding Path="Permissions"/>
                         </GridViewColumn.DisplayMemberBinding>
                     </GridViewColumn>
+                    
                 </GridView>
             </ListView.View>
             <ListView.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="Download" Command="{Binding OpenOrDownloadCommand}" CommandParameter="{Binding SelectedItem, RelativeSource={RelativeSource AncestorType=ListView}}"/>
+                    <MenuItem Header="Open/Download" Command="{Binding NavigateCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                    <Separator/>
+                    <MenuItem Header="Show Hidden Files" 
+                              IsCheckable="True" 
+                              IsChecked="{Binding ShowHiddenFiles, Mode=TwoWay}"/>
+                    <MenuItem Header="Refresh" Command="{Binding RefreshCommand}"/>
                 </ContextMenu>
             </ListView.ContextMenu>
         </ListView>
 
         <!-- Status -->
-        <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Margin="5" TextWrapping="Wrap"/>
+        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}" Margin="5" TextWrapping="Wrap"/>
     </Grid>
 </Window>

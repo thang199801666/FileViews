@@ -105,6 +105,54 @@ namespace FileViews.Services
             }
         }
 
+        public void SaveFile(FileItem file, string content, Encoding encoding = null)
+        {
+            if (!_isConnected) return;
+
+            encoding ??= Encoding.UTF8;
+
+            using (var memoryStream = new MemoryStream(encoding.GetBytes(content)))
+            {
+                _sftpClient.UploadFile(memoryStream, file.FullPath, true);
+            }
+        }
+
+        public void WriteFileAsText(string remotePath, string content)
+        {
+            if (!_isConnected) return;
+            using (var memoryStream = new MemoryStream())
+            {
+                using (var writer = new StreamWriter(memoryStream))
+                {
+                    writer.Write(content);
+                    writer.Flush();
+                    memoryStream.Position = 0;
+                    _sftpClient.UploadFile(memoryStream, remotePath, true);
+                }  
+            }
+        }
+
+        /// <summary>
+        /// Reads a remote SFTP file into memory.
+        /// Caller is responsible for disposing the returned stream.
+        /// </summary>
+        public MemoryStream ReadFileAsMemoryStream(string remotePath)
+        {
+            // Get the file size from SFTP server
+            long fileSize = _sftpClient.GetAttributes(remotePath).Size;
+
+            // Preallocate MemoryStream with the file size
+            var memoryStream = new MemoryStream((int)fileSize); // Cast to int, because MemoryStream size should be < 2GB
+
+            using (var sftpStream = _sftpClient.OpenRead(remotePath))
+            {
+                sftpStream.CopyTo(memoryStream);
+            }
+
+            memoryStream.Position = 0; // Reset position for reading
+            return memoryStream;
+        }
+
         public void Dispose()
         {
             if (_sftpClient != null && _sftpClient.IsConnected)

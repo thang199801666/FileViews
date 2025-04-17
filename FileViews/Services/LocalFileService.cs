@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace FileViews.Services
 {
@@ -53,6 +54,16 @@ namespace FileViews.Services
             {
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(file.FullPath) { UseShellExecute = true });
             }
+        }
+
+        public void WriteFileAsText(string filePath, string content)
+        {
+            File.WriteAllText(filePath, content);
+        }
+
+        public MemoryStream ReadFileAsMemoryStream(string remotePath)
+        {
+            return null;
         }
 
         public void Dispose()

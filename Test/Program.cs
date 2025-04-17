@@ -5,38 +5,30 @@ class Program
 {
     static void Main(string[] args)
     {
-        string host = "localhost";
-        int port = 2223;
-        string username = "myuser";
-        string password = "mypassword";
-        string remoteDirectory = "/home/myuser";
+        //var fileContent = FileService.ReadFileAsMemoryStream(filePath); //ReadFileAsText(filePath);
 
-        using (var sftp = new SftpClient(host, port, username, password))
-        {
-            try
-            {
-                sftp.Connect();
-                Console.WriteLine("✅ Connected to SFTP server");
+        //var notepadControl = new NotepadControl
+        //{
+        //    FilePath = filePath
+        //};
 
-                var files = sftp.ListDirectory(remoteDirectory);
+        //notepadControl.SetTextFromStream(fileContent);
 
-                Console.WriteLine($"📂 Files in {remoteDirectory}:");
-                foreach (var file in files)
-                {
-                    // Skip . and ..
-                    if (file.Name != "." && file.Name != "..")
-                    {
-                        Console.WriteLine($"- {file.Name} ({file.Length} bytes)");
-                    }
-                }
+        //var window = new Window
+        //{
+        //    Title = $"Notepad - {Path.GetFileName(filePath)}",
+        //    Content = notepadControl,
+        //    Width = 800,
+        //    Height = 600
+        //};
 
-                sftp.Disconnect();
-                Console.WriteLine("❎ Disconnected");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("❌ Error: " + ex.Message);
-            }
-        }
+        //// Handle SaveRequested event
+        //notepadControl.SaveRequested += (s, newText) =>
+        //{
+        //    FileService.WriteFileAsText(filePath, newText);
+        //    StatusMessage = $"Saved: {filePath}";
+        //};
+
+        //window.ShowDialog();
     }
 }

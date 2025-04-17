@@ -1,11 +1,16 @@
 ﻿using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
+using System.Text;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
 using FileViews.Models;
 using FileViews.Services;
+using NotepadApp.Controls;
+using Renci.SshNet;
 
 namespace FileViews.ViewModels
 {
@@ -18,6 +23,8 @@ namespace FileViews.ViewModels
         private readonly SftpFileService _fileService;
         private string _sortColumn;
         private bool _sortAscending;
+        private bool _showHiddenFiles;
+        private FileItem _selectedItem;
 
         public string Host
         {
@@ -43,7 +50,39 @@ namespace FileViews.ViewModels
             set { _password = value; OnPropertyChanged(); }
         }
 
+        public bool ShowHiddenFiles
+        {
+            get => _showHiddenFiles;
+            set
+            {
+                if (_showHiddenFiles != value)
+                {
+                    _showHiddenFiles = value;
+                    OnPropertyChanged();
+                    if (IsConnected)
+                    {
+                        LoadFiles(); // Refresh list when toggled
+                    }
+                }
+            }
+        }
+
+        public FileItem SelectedItem
+        {
+            get => _selectedItem;
+            set
+            {
+                _selectedItem = value;
+                OnPropertyChanged();
+                CommandManager.InvalidateRequerySuggested(); // Update command states
+            }
+        }
+
         public ICommand SortCommand { get; }
+        public ICommand ToggleHiddenFilesCommand { get; }
+        public ICommand NavigateCommand { get; }
+
+        public bool IsConnected { get; private set; }
 
         public SftpFileListViewModel(string host, int port, string username, string password)
             : base(new SftpFileService(host, port, username, password))
@@ -53,11 +92,13 @@ namespace FileViews.ViewModels
             Port = port;
             Username = username;
             Password = password;
-            CurrentPath = "/";
+            CurrentPath = "/home/";
             SortCommand = new RelayCommand(ExecuteSort, CanExecuteSort);
+            ToggleHiddenFilesCommand = new RelayCommand(ExecuteToggleHiddenFiles, CanExecuteToggleHiddenFiles);
+            NavigateCommand = new RelayCommand(ExecuteNavigate, CanExecuteNavigate);
             _sortColumn = "Name";
             _sortAscending = true;
-            // Không gọi ApplyDefaultSort ở đây vì Files chưa có dữ liệu
+            _showHiddenFiles = false;
         }
 
         protected override void ExecuteConnect(object parameter)
@@ -66,15 +107,17 @@ namespace FileViews.ViewModels
             {
                 StatusMessage = "Connecting...";
                 FileService.Connect();
-                CurrentPath = _fileService.DefaultPath ?? "/";
-                LoadFiles(); // Tách logic tải dữ liệu
+                CurrentPath = _fileService.DefaultPath ?? "/home/";
+                LoadFiles();
                 StatusMessage = "Connected successfully.";
                 IsConnected = true;
+                OnPropertyChanged(nameof(IsConnected));
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Connection failed: {ex.Message}";
                 IsConnected = false;
+                OnPropertyChanged(nameof(IsConnected));
             }
         }
 
@@ -88,27 +131,176 @@ namespace FileViews.ViewModels
 
         protected override void ExecuteRefresh(object parameter)
         {
-            LoadFiles(); // Gọi lại để làm mới
+            LoadFiles();
+        }
+
+        private void ExecuteNavigate(object parameter)
+        {
+            if (parameter is not FileItem fileItem)
+                return;
+
+            if (fileItem.IsDirectory)
+            {
+                string newPath = NavigateToDirectory(fileItem);
+                if (!string.IsNullOrEmpty(newPath))
+                {
+                    StatusMessage = $"Navigating to {newPath}...";
+                    CurrentPath = newPath;
+                    OnPropertyChanged(nameof(CurrentPath));
+                    LoadFiles();
+                }
+            }
+            else
+            {
+                if (fileItem.Size < 10 * 1024 * 1024) // < 10MB
+                {
+                    OpenFileInNotepadControl(fileItem.FullPath);
+                }
+                else
+                {
+                    StatusMessage = $"File size exceeds 10MB, cannot open in Notepad.";
+                }
+            }
+        }
+
+        /// <summary>
+        /// Navigate to the selected directory.
+        /// </summary>
+        private string NavigateToDirectory(FileItem fileItem)
+        {
+            string newPath;
+
+            if (fileItem.Name == "..")
+            {
+                // Navigate to parent directory
+                string trimmedPath = CurrentPath.TrimEnd('/');
+                int lastSlashIndex = trimmedPath.LastIndexOf('/');
+
+                if (lastSlashIndex > 0)
+                    newPath = trimmedPath.Substring(0, lastSlashIndex);
+                else
+                    newPath = "/"; // Already at root
+
+                if (!newPath.EndsWith("/"))
+                    newPath += "/";
+            }
+            else
+            {
+                // Navigate to child directory
+                if (CurrentPath.EndsWith("/"))
+                    newPath = $"{CurrentPath}{fileItem.Name}/";
+                else
+                    newPath = $"{CurrentPath}/{fileItem.Name}/";
+            }
+
+            return newPath;
+        }
+
+        /// <summary>
+        /// Opens the file content in the custom NotepadControl.
+        /// </summary>
+        private void OpenFileInNotepadControl(string filePath)
+        {
+            try
+            {
+                var fileContent = FileService.ReadFileAsMemoryStream(filePath); //ReadFileAsText(filePath);
+
+                var notepadControl = new NotepadControl
+                {
+                    FilePath = filePath
+                };
+
+                notepadControl.SetTextFromStream(fileContent);
+
+                var window = new Window
+                {
+                    Title = $"Notepad - {Path.GetFileName(filePath)}",
+                    Content = notepadControl,
+                    Width = 800,
+                    Height = 600
+                };
+
+                // Handle SaveRequested event
+                notepadControl.SaveRequested += (s, newText) =>
+                {
+                    FileService.WriteFileAsText(filePath, newText);
+                    StatusMessage = $"Saved: {filePath}";
+                };
+
+                window.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Failed to open file: {ex.Message}";
+            }
+        }
+
+
+        private bool CanExecuteNavigate(object parameter)
+        {
+            return IsConnected && parameter is FileItem;
+        }
+
+        protected override void ExecuteOpenOrDownload(object parameter)
+        {
+            var fileItem = parameter as FileItem;
+            if (fileItem == null)
+                return;
+
+            if (fileItem.IsDirectory)
+            {
+                ExecuteNavigate(fileItem);
+            }
+            else
+            {
+                
+            }
         }
 
         private void LoadFiles()
         {
             try
             {
-                StatusMessage = "Loading files...";
                 Files.Clear();
                 var files = FileService.ListFiles(CurrentPath);
+
                 foreach (var file in files)
                 {
-                    Files.Add(file);
+                    // Load files always include ..directory
+                    if (file.Name == "..") Files.Add(file);
+                    if (file.Name.StartsWith("."))
+                    {
+                        if (_showHiddenFiles)
+                        {
+                            Files.Add(file);
+                        }
+                    }
+                    else
+                    {
+                        Files.Add(file);
+                    }
                 }
-                ApplyDefaultSort(); // Áp dụng sắp xếp sau khi có dữ liệu
-                StatusMessage = "Files loaded successfully.";
+                SortFiles(_sortColumn, _sortAscending);
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Load failed: {ex.Message}";
             }
+        }
+
+        //public string ReadFileAsText(string remotePath, Encoding encoding = null)
+        //{
+        //    return FileService.ReadFileAsText(remotePath, encoding);
+        //}
+
+        private void ExecuteToggleHiddenFiles(object parameter)
+        {
+            ShowHiddenFiles = !ShowHiddenFiles;
+        }
+
+        private bool CanExecuteToggleHiddenFiles(object parameter)
+        {
+            return IsConnected;
         }
 
         private void ExecuteSort(object parameter)
@@ -125,21 +317,8 @@ namespace FileViews.ViewModels
                     _sortAscending = true;
                 }
 
-                var view = CollectionViewSource.GetDefaultView(Files);
-                if (view is ListCollectionView listView)
-                {
-                    if (_sortColumn == "Name")
-                    {
-                        listView.CustomSort = new CustomFileItemComparer(_sortAscending);
-                    }
-                    else
-                    {
-                        listView.SortDescriptions.Clear();
-                        listView.SortDescriptions.Add(new SortDescription(_sortColumn, _sortAscending ? ListSortDirection.Ascending : ListSortDirection.Descending));
-                        listView.CustomSort = null;
-                    }
-                    view.Refresh(); // Đảm bảo giao diện cập nhật
-                }
+                StatusMessage = $"Sorting by {_sortColumn} ({(_sortAscending ? "ascending" : "descending")})";
+                SortFiles(_sortColumn, _sortAscending);
             }
         }
 
@@ -148,45 +327,134 @@ namespace FileViews.ViewModels
             return IsConnected && Files.Any();
         }
 
-        private void ApplyDefaultSort()
+        private void SortFiles(string columnName, bool ascending)
         {
-            var view = CollectionViewSource.GetDefaultView(Files);
-            if (view is ListCollectionView listView && Files.Any())
+            var sortedList = new List<FileItem>(Files);
+
+            switch (columnName)
             {
-                listView.CustomSort = new CustomFileItemComparer(_sortAscending);
-                view.Refresh();
-            }
-        }
-    }
-
-    public class CustomFileItemComparer : IComparer
-    {
-        private readonly bool _ascending;
-
-        public CustomFileItemComparer(bool ascending)
-        {
-            _ascending = ascending;
-        }
-
-        public int Compare(object x, object y)
-        {
-            if (x is FileItem item1 && y is FileItem item2)
-            {
-                if (item1.Name == ".." && item2.Name != "..")
-                    return _ascending ? -1 : 1;
-                if (item2.Name == ".." && item1.Name != "..")
-                    return _ascending ? 1 : -1;
-
-                if (item1.IsDirectory && !item2.IsDirectory)
-                    return _ascending ? -1 : 1;
-                if (!item1.IsDirectory && item2.IsDirectory)
-                    return _ascending ? 1 : -1;
-
-                int nameComparison = string.Compare(item1.Name, item2.Name, StringComparison.OrdinalIgnoreCase);
-                return _ascending ? nameComparison : -nameComparison;
+                case "Name":
+                    sortedList = SortByName(sortedList, ascending);
+                    break;
+                case "Size":
+                    sortedList = SortBySize(sortedList, ascending);
+                    break;
+                case "LastModified":
+                    sortedList = SortByLastModified(sortedList, ascending);
+                    break;
+                case "Permissions":
+                    sortedList = SortByPermissions(sortedList, ascending);
+                    break;
+                default:
+                    sortedList = SortByName(sortedList, ascending);
+                    break;
             }
 
-            return 0;
+            Files.Clear();
+            foreach (var item in sortedList)
+            {
+                Files.Add(item);
+            }
+        }
+
+        private List<FileItem> SortByName(List<FileItem> items, bool ascending)
+        {
+            var parentDir = items.FirstOrDefault(i => i.Name == "..");
+            var directories = items.Where(i => i.IsDirectory && i.Name != "..").ToList();
+            var files = items.Where(i => !i.IsDirectory).ToList();
+
+            if (ascending)
+            {
+                directories.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+                files.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+            }
+            else
+            {
+                directories.Sort((a, b) => string.Compare(b.Name, a.Name, StringComparison.OrdinalIgnoreCase));
+                files.Sort((a, b) => string.Compare(b.Name, a.Name, StringComparison.OrdinalIgnoreCase));
+            }
+
+            var result = new List<FileItem>();
+            if (parentDir != null) result.Add(parentDir);
+            result.AddRange(directories);
+            result.AddRange(files);
+
+            return result;
+        }
+
+        private List<FileItem> SortBySize(List<FileItem> items, bool ascending)
+        {
+            var parentDir = items.FirstOrDefault(i => i.Name == "..");
+            var directories = items.Where(i => i.IsDirectory && i.Name != "..").ToList();
+            var files = items.Where(i => !i.IsDirectory).ToList();
+
+            if (ascending)
+            {
+                directories.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+                files.Sort((a, b) => a.Size.CompareTo(b.Size));
+            }
+            else
+            {
+                directories.Sort((a, b) => string.Compare(b.Name, a.Name, StringComparison.OrdinalIgnoreCase));
+                files.Sort((a, b) => b.Size.CompareTo(a.Size));
+            }
+
+            var result = new List<FileItem>();
+            if (parentDir != null) result.Add(parentDir);
+            result.AddRange(directories);
+            result.AddRange(files);
+
+            return result;
+        }
+
+        private List<FileItem> SortByLastModified(List<FileItem> items, bool ascending)
+        {
+            var parentDir = items.FirstOrDefault(i => i.Name == "..");
+            var directories = items.Where(i => i.IsDirectory && i.Name != "..").ToList();
+            var files = items.Where(i => !i.IsDirectory).ToList();
+
+            if (ascending)
+            {
+                directories.Sort((a, b) => a.LastModified.CompareTo(b.LastModified));
+                files.Sort((a, b) => a.LastModified.CompareTo(b.LastModified));
+            }
+            else
+            {
+                directories.Sort((a, b) => b.LastModified.CompareTo(a.LastModified));
+                files.Sort((a, b) => b.LastModified.CompareTo(a.LastModified));
+            }
+
+            var result = new List<FileItem>();
+            if (parentDir != null) result.Add(parentDir);
+            result.AddRange(directories);
+            result.AddRange(files);
+
+            return result;
+        }
+
+        private List<FileItem> SortByPermissions(List<FileItem> items, bool ascending)
+        {
+            var parentDir = items.FirstOrDefault(i => i.Name == "..");
+            var directories = items.Where(i => i.IsDirectory && i.Name != "..").ToList();
+            var files = items.Where(i => !i.IsDirectory).ToList();
+
+            if (ascending)
+            {
+                directories.Sort((a, b) => string.Compare(a.Permissions, b.Permissions, StringComparison.Ordinal));
+                files.Sort((a, b) => string.Compare(a.Permissions, b.Permissions, StringComparison.Ordinal));
+            }
+            else
+            {
+                directories.Sort((a, b) => string.Compare(b.Permissions, a.Permissions, StringComparison.Ordinal));
+                files.Sort((a, b) => string.Compare(b.Permissions, a.Permissions, StringComparison.Ordinal));
+            }
+
+            var result = new List<FileItem>();
+            if (parentDir != null) result.Add(parentDir);
+            result.AddRange(directories);
+            result.AddRange(files);
+
+            return result;
         }
     }
 }

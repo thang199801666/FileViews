@@ -7,6 +7,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileViews", "FileViews\File
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{408C61BD-8E3C-44A0-992C-056265846A44}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotepadApp", "NotepadApp\NotepadApp.csproj", "{1FD03B9F-66C5-45A6-821C-EDA82A694688}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestGUI", "TestGUI\TestGUI.csproj", "{A6044F2E-1728-47A2-BFF3-07CD0EE69F53}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{408C61BD-8E3C-44A0-992C-056265846A44}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{408C61BD-8E3C-44A0-992C-056265846A44}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{408C61BD-8E3C-44A0-992C-056265846A44}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1FD03B9F-66C5-45A6-821C-EDA82A694688}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FD03B9F-66C5-45A6-821C-EDA82A694688}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FD03B9F-66C5-45A6-821C-EDA82A694688}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FD03B9F-66C5-45A6-821C-EDA82A694688}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6044F2E-1728-47A2-BFF3-07CD0EE69F53}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A6044F2E-1728-47A2-BFF3-07CD0EE69F53}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6044F2E-1728-47A2-BFF3-07CD0EE69F53}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A6044F2E-1728-47A2-BFF3-07CD0EE69F53}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
